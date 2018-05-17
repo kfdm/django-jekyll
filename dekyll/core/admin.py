@@ -15,4 +15,7 @@ class PageAdmin(admin.ModelAdmin):
 
 @admin.register(models.Tag)
 class TagAdmin(admin.ModelAdmin):
-    list_display = ('tag', 'content_object')
+    def _object_slug(self, object):
+        return object.content_object.slug
+
+    list_display = ('tag', '_object_slug')

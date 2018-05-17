@@ -53,8 +53,9 @@ class Post(Importer):
         # frontmatter.setdefault('date', '{}-{}-{}'.format(year, month, day))
         frontmatter['date'] = '{}-{}-{}'.format(year, month, day)
         frontmatter.setdefault('slug', slug)
+        frontmatter.setdefault('tags', [])
 
-        return self.model.objects.update_or_create(
+        obj, created = self.model.objects.update_or_create(
             slug=frontmatter['slug'],
             defaults={
                 'raw': self.body,
@@ -63,6 +64,9 @@ class Post(Importer):
                 'dirty': False,
             }
         )
+        for tag in frontmatter['tags']:
+            obj.tag_set.create(tag=tag)
+        return obj, created
 
 
 class Command(BaseCommand):
