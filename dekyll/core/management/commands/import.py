@@ -1,3 +1,4 @@
+import json
 import os
 import re
 
@@ -57,6 +58,7 @@ class Post(Importer):
             slug=frontmatter['slug'],
             defaults={
                 'raw': self.body,
+                'frontmatter': json.dumps(frontmatter),
                 'date': frontmatter['date'],
                 'dirty': False,
             }

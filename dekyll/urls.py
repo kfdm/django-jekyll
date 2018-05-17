@@ -15,7 +15,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from dekyll.core import views
 
 urlpatterns = [
+    path('posts/', views.PostListView.as_view(), name='post-list'),
     path('admin/', admin.site.urls),
 ]

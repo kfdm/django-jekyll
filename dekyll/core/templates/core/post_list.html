@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<table class="table">
+{% for post in post_list %}
+    <tr>
+        <td>{{post.date}}</td>
+        <td>{{post.slug}}</td>
+        <td>{{post.frontmatter}}</td>
+    </tr>
+{% endfor %}
+</table>
+{% endblock %}
