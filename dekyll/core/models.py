@@ -9,3 +9,9 @@ class Post(models.Model):
 
     class Meta:
         ordering = ('-date',)
+
+
+class Page(models.Model):
+    raw = models.TextField()
+    dirty = models.BooleanField()
+    slug = models.SlugField()

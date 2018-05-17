@@ -1,10 +1,66 @@
 import os
+import re
 
 from django.core.management.base import BaseCommand
 
 import yaml
-import re
-from dekyll.core.models import Post
+from dekyll.core import models
+
+
+class Importer(object):
+    def __init__(self, path):
+        self.path = path
+        self.fn = os.path.basename(path)
+
+        with open(path, encoding='utf8') as fp:
+            raw_text = fp.read()
+            in_frontmatter = None
+            frontmatter = ''
+            body = ''
+            for line in raw_text.split('\n'):
+                if in_frontmatter and line == '---':
+                    in_frontmatter = False
+                    continue
+                if in_frontmatter is None and line == '---':
+                    in_frontmatter = True
+                    continue
+                if in_frontmatter:
+                    frontmatter += line + '\n'
+                    continue
+                body += line + '\n'
+        self.body = body
+        self.frontmatter = frontmatter
+
+
+class Page(Importer):
+    re_path = re.compile('(?P<page>.*)\.(?P<ext>md|markdown)')
+
+    def process(self):
+        print(self.path)
+        return None, None
+
+
+class Post(Importer):
+    re_path = re.compile('(?P<year>\w{4})-(?P<month>\w{2})-(?P<day>\w{2})-(?P<slug>.*)\.(?P<ext>md|markdown)')
+    model = models.Post
+
+    def process(self):
+        year, month, day, slug, ext = self.re_path.match(self.fn).groups()
+
+        frontmatter = yaml.safe_load(self.frontmatter)
+        frontmatter.setdefault('title', self.fn)
+        # frontmatter.setdefault('date', '{}-{}-{}'.format(year, month, day))
+        frontmatter['date'] = '{}-{}-{}'.format(year, month, day)
+        frontmatter.setdefault('slug', slug)
+
+        return self.model.objects.update_or_create(
+            slug=frontmatter['slug'],
+            defaults={
+                'raw': self.body,
+                'date': frontmatter['date'],
+                'dirty': False,
+            }
+        )
 
 
 class Command(BaseCommand):
@@ -20,7 +76,7 @@ class Command(BaseCommand):
         updated = 0
         deleted = 0
 
-        Post.objects.update(dirty=True)
+        Post.model.objects.update(dirty=True)
 
         for dirpath, dirnames, filenames in os.walk(path):
 
@@ -30,48 +86,18 @@ class Command(BaseCommand):
                     dirnames.remove(prune)
 
             for fn in filenames:
-                match = self.re_path.match(fn)
-                if match is None:
+                match = Post.re_path.match(fn)
+                if match:
+                    post, new_post = Post(os.path.join(dirpath, fn)).process()
+                    if new_post:
+                        created += 1
+                    else:
+                        updated += 1
                     continue
-                year, month, day, slug, ext = match.groups()
+                match = Page.re_path.match(fn)
+                if match:
+                    page, new_page = Page(os.path.join(dirpath, fn)).process()
 
-                with open(os.path.join(dirpath, fn), encoding='utf8') as fp:
-                    print(fp.name)
-
-                    raw_text = fp.read()
-                    in_frontmatter = None
-                    frontmatter = ''
-                    body = ''
-                    for line in raw_text.split('\n'):
-                        if in_frontmatter and line == '---':
-                            in_frontmatter = False
-                            continue
-                        if in_frontmatter is None and line == '---':
-                            in_frontmatter = True
-                            continue
-                        if in_frontmatter:
-                            frontmatter += line + '\n'
-                            continue
-                        body += line + '\n'
-
-                frontmatter = yaml.safe_load(frontmatter)
-                frontmatter.setdefault('title', fp.name)
-                #frontmatter.setdefault('date', '{}-{}-{}'.format(year, month, day))
-                frontmatter['date'] = '{}-{}-{}'.format(year, month, day)
-                frontmatter.setdefault('slug', slug)
-
-                post, new_post = Post.objects.update_or_create(
-                    slug=frontmatter['slug'],
-                    defaults={
-                        'raw': body,
-                        'date': frontmatter['date'],
-                        'dirty': False,
-                    }
-                )
-                if new_post:
-                    created += 1
-                else:
-                    updated += 1
 
         print('Created', created)
         print('Updated', updated)
